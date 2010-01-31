@@ -28,6 +28,9 @@
       <menuitem name="EditRotateRightMenu" action="EditRotateRight"/>
       <separator/>
       <menuitem name="EditToolbarMenu" action="EditToolbar"/>
+      <separator/>
+      <menuitem name="EditRememberMenu" action="EditRemember"/>
+      <menuitem name="EditInXournalMenu" action="EditInXournal"/>
     </menu>
 
     <menu name="ViewMenu" action="View">

@@ -23,6 +23,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <ctype.h>
+#include <assert.h>
 
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
@@ -42,6 +44,9 @@
 #include "ev-view-accessible.h"
 #include "ev-view-private.h"
 #include "ev-view-type-builtins.h"
+
+
+
 
 #define EV_VIEW_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), EV_TYPE_VIEW, EvViewClass))
 #define EV_IS_VIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), EV_TYPE_VIEW))
@@ -5745,3 +5750,104 @@ ev_view_previous_page (EvView *view)
 	}
 }
 		
+static gint is_unchanged_uri_char(char c)
+{
+  return isalnum(c);
+}
+
+static void encode_uri(gchar *encoded_uri, gint bufsize, const gchar *uri)
+{
+  int i;
+  int k;
+  
+  k = 0;
+  assert(encoded_uri != NULL);
+  assert(uri != NULL);
+  for(i = 0; i < strlen(uri) ; i++) {
+    if (is_unchanged_uri_char(uri[i])) {
+      if (k + 2 >= bufsize)
+        break;
+      encoded_uri[k++] = uri[i];
+    }
+    else {
+      char * hexa = "0123456789ABCDEF";
+      
+      if (k + 4 >= bufsize)
+        break;
+      encoded_uri[k++] = '%';
+      encoded_uri[k++] = hexa[uri[i] / 16];
+      encoded_uri[k++] = hexa[uri[i] % 16];
+    }
+  }
+  encoded_uri[k] = 0;
+}
+
+
+
+void
+ev_view_annotate (EvView *ev_view, gchar *uri, int page)
+{
+#define ANN_MAX_BUFFER_LEN	 1000
+	char *text;
+	char *tempSel;
+	char *tempFileName;
+	char *tempCommandLine;
+	GError  *error = NULL;
+	
+
+	if (ev_view == NULL) 
+		return;
+
+	EvDocumentInfo  *p = ev_document_get_info(ev_view->document);
+
+	tempSel = g_malloc(ANN_MAX_BUFFER_LEN);
+	tempFileName = g_malloc(strlen(uri) * 4);
+
+	if (!EV_IS_SELECTION (ev_view->document))  {
+		strcmp(tempSel,  ""); 
+		text = "";
+	}
+	else {
+		text = get_selected_text (ev_view);
+		encode_uri(tempSel, ANN_MAX_BUFFER_LEN, text);
+	}
+	/// encode filename
+#define ANN_FILE_PREFIX "file://"
+	if (strncmp(uri,ANN_FILE_PREFIX, strlen(ANN_FILE_PREFIX) ) == 0) {
+		// skip the prefix
+		encode_uri(tempFileName, 
+			   ANN_MAX_BUFFER_LEN, uri+strlen(ANN_FILE_PREFIX));
+	} else {
+		encode_uri(tempFileName, ANN_MAX_BUFFER_LEN, uri);
+	}
+
+	tempCommandLine = g_malloc(strlen(tempSel) + strlen(tempFileName) + 200);
+
+	printf("remember::::%s::::%s::::%s::::%d\n", p->title, uri, text, page);
+	sprintf(tempCommandLine, "emacsclient 'org-protocol://remember://docview:%s::%d'", tempFileName, page+1);
+	printf("temp: [%s]\n", tempCommandLine);
+
+	if (!g_spawn_command_line_async (tempCommandLine, &error)) {
+		g_printerr ("Cannot start emacsclient: %s\n", error->message);
+		g_error_free (error);
+	}
+
+	g_free (text);
+	g_free (tempSel);
+	g_free (tempCommandLine);
+	g_free (tempFileName);
+
+
+#ifdef fork
+	pid_t pID = fork();
+	if (pID == 0) {
+		// Code only executed by child process
+		// this is the child
+	} else if (pID < 0) {           // failed to fork		
+		fprintf(stderr,"Failed to fork");
+	} else {
+      // Code only executed by parent process
+	}
+#endif	
+
+}

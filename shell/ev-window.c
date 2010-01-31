@@ -411,6 +411,8 @@ ev_window_setup_action_sensitivity (EvWindow *ev_window)
 	ev_window_set_action_sensitive (ev_window, "Slash", can_find);
 	ev_window_set_action_sensitive (ev_window, "EditRotateLeft", has_pages);
 	ev_window_set_action_sensitive (ev_window, "EditRotateRight", has_pages);
+	ev_window_set_action_sensitive (ev_window, "EditInXournal", has_pages );
+	ev_window_set_action_sensitive (ev_window, "EditRemember", has_pages );
 
         /* View menu */
 	ev_window_set_action_sensitive (ev_window, "ViewContinuous", has_pages);
@@ -462,6 +464,9 @@ ev_window_update_actions (EvWindow *ev_window)
 					has_pages && can_find_in_page);
         ev_window_set_action_sensitive (ev_window, "F3",
                                         has_pages && can_find_in_page);
+
+	ev_window_set_action_sensitive (ev_window, "EditInXournal", has_pages );
+	ev_window_set_action_sensitive (ev_window, "EditRemember",has_pages );
 
 	presentation_mode = EV_WINDOW_IS_PRESENTATION (ev_window);
 	
@@ -3398,6 +3403,63 @@ ev_window_cmd_edit_find_next (GtkAction *action, EvWindow *ev_window)
 	ev_view_find_next (EV_VIEW (ev_window->priv->view));
 }
 
+void
+ev_view_annotate (EvView *ev_view, const gchar *uri, int page);
+
+static void
+ev_window_cmd_edit_remember (GtkAction *action, EvWindow *ev_window)
+{
+	EvDocumentModel *document;
+
+        g_return_if_fail (EV_IS_WINDOW (ev_window));
+
+	if (!ev_window || 
+	    !ev_window->priv )
+		return;
+	document = ev_window->priv->model;
+
+	fprintf(stderr,"Going to do a remember\n");
+	int current_page = ev_document_model_get_page (document);
+	EvView *ev_view = EV_VIEW (ev_window->priv->view);
+	ev_view_annotate (ev_view, ev_window_get_uri(ev_window), current_page);
+
+}
+
+
+
+static void
+ev_window_cmd_edit_in_xournal (GtkAction *action, EvWindow *ev_window)
+{
+	char *temp;
+	EvDocumentModel *document;
+	GError  *error = NULL;
+
+
+        g_return_if_fail (EV_IS_WINDOW (ev_window));
+
+	if (!ev_window || 
+	    !ev_window->priv )
+		return;
+
+	document = ev_window->priv->model;
+
+	if (strncmp("file://", ev_window_get_uri(ev_window), 7) != 0) {
+		return;
+	}
+
+	int current_page = ev_document_model_get_page (document) + 1;
+	temp = g_malloc (strlen(ev_window_get_uri(ev_window)) + 30);
+	sprintf(temp, "xournal  -p %d '%s'", current_page, ev_window_get_uri(ev_window)+7);
+	if (!g_spawn_command_line_async (temp, &error)) {
+		g_printerr ("Cannot start evince: %s\n", error->message);
+		g_error_free (error);
+	}
+	g_free(temp);
+
+}
+
+
+
 static void
 ev_window_cmd_edit_find_previous (GtkAction *action, EvWindow *ev_window)
 {
@@ -5030,7 +5092,10 @@ static const GtkActionEntry entries[] = {
 	  G_CALLBACK (ev_window_cmd_edit_rotate_left) },
 	{ "EditRotateRight", EV_STOCK_ROTATE_RIGHT, N_("Rotate _Right"), "<control>Right", NULL,
 	  G_CALLBACK (ev_window_cmd_edit_rotate_right) },
-
+        { "EditRemember", NULL, N_("_Remember"), "<shift><control>R", NULL,
+          G_CALLBACK (ev_window_cmd_edit_remember) },
+        { "EditInXournal", NULL, N_("Load in _Xournal"), NULL, NULL,
+          G_CALLBACK (ev_window_cmd_edit_in_xournal) },
 
         /* View menu */
         { "ViewZoomIn", GTK_STOCK_ZOOM_IN, NULL, "<control>plus",
