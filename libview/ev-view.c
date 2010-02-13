@@ -5775,8 +5775,8 @@ static void encode_uri(gchar *encoded_uri, gint bufsize, const gchar *uri)
       if (k + 4 >= bufsize)
         break;
       encoded_uri[k++] = '%';
-      encoded_uri[k++] = hexa[uri[i] / 16];
-      encoded_uri[k++] = hexa[uri[i] % 16];
+      encoded_uri[k++] = hexa[(unsigned char)uri[i] / 16];
+      encoded_uri[k++] = hexa[(unsigned char)uri[i] % 16];
     }
   }
   encoded_uri[k] = 0;
