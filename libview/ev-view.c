@@ -5800,9 +5800,18 @@ ev_view_annotate (EvView *ev_view, gchar *uri, int page)
 
 	EvDocumentInfo  *p = ev_document_get_info(ev_view->document);
 
+	// get the real file path from evince
+	GFile *gfile = g_file_new_for_uri(uri);
+	char *filePath = g_file_get_path(gfile);
+	g_object_unref (gfile);
+	if (!filePath) {
+		printf("invalid file path");
+		return;
+	}
+	
 	tempSel = g_malloc(ANN_MAX_BUFFER_LEN);
 	tempFileName = g_malloc(strlen(uri) * 4);
-
+	
 	if (!EV_IS_SELECTION (ev_view->document))  {
 		strcmp(tempSel,  ""); 
 		text = "";
@@ -5811,20 +5820,13 @@ ev_view_annotate (EvView *ev_view, gchar *uri, int page)
 		text = get_selected_text (ev_view);
 		encode_uri(tempSel, ANN_MAX_BUFFER_LEN, text);
 	}
-	/// encode filename
-#define ANN_FILE_PREFIX "file://"
-	if (strncmp(uri,ANN_FILE_PREFIX, strlen(ANN_FILE_PREFIX) ) == 0) {
-		// skip the prefix
-		encode_uri(tempFileName, 
-			   ANN_MAX_BUFFER_LEN, uri+strlen(ANN_FILE_PREFIX));
-	} else {
-		encode_uri(tempFileName, ANN_MAX_BUFFER_LEN, uri);
-	}
-
+		
+	encode_uri(tempFileName, ANN_MAX_BUFFER_LEN, filePath);
+	
 	tempCommandLine = g_malloc(strlen(tempSel) + strlen(tempFileName) + 200);
 
-	printf("remember::::%s::::%s::::%s::::%d\n", p->title, uri, text, page);
 	sprintf(tempCommandLine, "emacsclient 'org-protocol://remember://docview:%s::%d'", tempFileName, page+1);
+	printf("remember::::%s::::%s::::%s::::%d\n", p->title, filePath, text, page);
 	printf("temp: [%s]\n", tempCommandLine);
 
 	if (!g_spawn_command_line_async (tempCommandLine, &error)) {
@@ -5836,6 +5838,8 @@ ev_view_annotate (EvView *ev_view, gchar *uri, int page)
 	g_free (tempSel);
 	g_free (tempCommandLine);
 	g_free (tempFileName);
+	g_free (filePath);
+	
 
 
 #ifdef fork
